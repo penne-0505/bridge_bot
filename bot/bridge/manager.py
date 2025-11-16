@@ -423,24 +423,35 @@ class ChannelBridgeManager:
         profile: BridgeProfile,
     ) -> Tuple[Optional[discord.Embed], Optional[str]]:
         description = "\n".join(filter(None, annotations)).strip() or None
-
         message_content = raw_content or "(空メッセージ)"
-        if len(message_content) > 4096:
-            message_content = message_content[:4066] + "\n...(省略)"
 
         embed: Optional[discord.Embed] = None
         content: Optional[str] = None
-        if len(message_content) <= 4096:
-            parts: List[str] = [message_content]
+
+        parts = [message_content]
+        if description:
+            parts.append(description)
+        full_description = "\n".join(parts)
+
+        if len(full_description) <= 4096:
+            embed = discord.Embed(description=full_description, colour=discord.Colour.dark_blue())
+            embed.set_author(name=profile.display_name, icon_url=profile.avatar_url)
+        elif len(message_content) <= 4096:
+            ellipsis = "\n...(省略)"
+            cut_amount = (len(full_description) - 4096) + len(ellipsis)
+            truncated_content = message_content[:-cut_amount] + ellipsis
+            final_parts = [truncated_content]
             if description:
-                parts.append(description)
-            embed = discord.Embed(description="\n".join(parts), colour=discord.Colour.dark_blue())
+                final_parts.append(description)
+            final_description = "\n".join(final_parts)
+            embed = discord.Embed(description=final_description, colour=discord.Colour.dark_blue())
             embed.set_author(name=profile.display_name, icon_url=profile.avatar_url)
         else:
+            truncated_content = message_content[:4066] + "\n...(省略)"
             truncated_description = (description or "")
             if len(truncated_description) > 1900:
                 truncated_description = truncated_description[:1870] + "\n...(省略)"
-            content_lines: List[str] = [profile.display_name, message_content]
+            content_lines: List[str] = [profile.display_name, truncated_content]
             if truncated_description:
                 content_lines.append(truncated_description)
             content = "\n".join(content_lines)
