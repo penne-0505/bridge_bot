@@ -82,6 +82,7 @@ class ChannelBridgeManager:
             return
 
         self._store_message_location(message)
+        self._log_bridge_received(message=message, route_count=len(routes))
 
         try:
             profile = self._profile_store.get_profile(seed=f"{message.author.id}-{date.today().isoformat()}")
@@ -105,12 +106,25 @@ class ChannelBridgeManager:
                 )
                 continue
 
-            payload = await self._build_mirror_payload(
-                source_message=message,
-                profile=profile,
-                dicebear_failed=dicebear_failed,
-                target=route.dst,
-            )
+            try:
+                payload = await self._build_mirror_payload(
+                    source_message=message,
+                    profile=profile,
+                    dicebear_failed=dicebear_failed,
+                    target=route.dst,
+                )
+            except Exception as exc:  # pragma: no cover - 予期しないフォーマット崩れに備える
+                LOGGER.exception(
+                    "ミラーメッセージの生成に失敗しました。フォールバックを適用します: message_id=%s route=%s error=%s",
+                    message.id,
+                    route,
+                    exc,
+                )
+                payload = self._build_fallback_payload(
+                    source_message=message,
+                    profile=profile,
+                    target=route.dst,
+                )
             if payload is None:
                 continue
 
@@ -122,12 +136,15 @@ class ChannelBridgeManager:
             if payload.content is not None:
                 send_kwargs["content"] = payload.content
 
+            self._log_bridge_send_start(message=message, route=route, payload=payload)
             try:
                 mirrored = await destination.send(**send_kwargs)
             except discord.HTTPException as exc:
-                LOGGER.warning(
-                    "メッセージブリッジに失敗しました: source=%s destination=%s error=%s",
+                LOGGER.error(
+                    "メッセージブリッジ送信に失敗しました: source=%s destination=%s/%s channel=%s error=%s",
                     message.id,
+                    route.dst.guild,
+                    route.dst.channel,
                     getattr(destination, "id", "unknown"),
                     exc,
                 )
@@ -137,6 +154,12 @@ class ChannelBridgeManager:
             self._link_messages(message.id, mirrored.id)
             self._mirrored_message_ids.add(mirrored.id)
             new_destination_ids.append(mirrored.id)
+            self._log_bridge_send_success(
+                source_message=message,
+                mirrored_message=mirrored,
+                route=route,
+                payload=payload,
+            )
 
         if new_destination_ids:
             image_filename, attachment_notes = self._summarize_attachment_notes(message.attachments)
@@ -391,7 +414,20 @@ class ChannelBridgeManager:
         dicebear_failed: bool,
         target: ChannelEndpoint,
     ) -> Optional[MirrorPayload]:
-        attachments = await self._prepare_attachments(source_message.attachments)
+        try:
+            attachments = await self._prepare_attachments(source_message.attachments)
+        except Exception as exc:  # pragma: no cover - Discord 仕様変更等での例外に備える
+            LOGGER.exception(
+                "添付ファイル処理で予期しないエラーが発生しました。フォールバックに切り替えます: message_id=%s error=%s",
+                source_message.id,
+                exc,
+            )
+            return self._build_fallback_payload(
+                source_message=source_message,
+                profile=profile,
+                target=target,
+                notes=["(添付処理失敗: fallback message sent)"],
+            )
         annotations: List[str] = []
         if source_message.reference:
             reference_line = self._format_reference(source_message, target=target)
@@ -414,6 +450,31 @@ class ChannelBridgeManager:
             embed.set_image(url=f"attachment://{attachments.image_filename}")
 
         return MirrorPayload(embed=embed, content=content, files=attachments.files)
+
+    def _build_fallback_payload(
+        self,
+        *,
+        source_message: discord.Message,
+        profile: BridgeProfile,
+        target: ChannelEndpoint,
+        notes: Optional[Sequence[str]] = None,
+    ) -> MirrorPayload:
+        attachment_summary = ", ".join(
+            attachment.filename for attachment in source_message.attachments
+        ) or "なし"
+        annotations = [
+            "(fallback relay)",
+            f"route={target.guild}/{target.channel}",
+        ]
+        if notes:
+            annotations.extend(notes)
+        annotations.append(f"attachments={attachment_summary}")
+        content_lines = [
+            f"{profile.display_name} からのメッセージをフォールバックで転送しました。",
+            source_message.content or "(空メッセージ)",
+            "\n".join(annotations),
+        ]
+        return MirrorPayload(embed=None, content="\n".join(content_lines), files=[])
 
     def _compose_mirror_texts(
         self,
@@ -446,6 +507,53 @@ class ChannelBridgeManager:
             content = "\n".join(content_lines)
 
         return embed, content
+
+    def _log_bridge_received(self, *, message: discord.Message, route_count: int) -> None:
+        attachment_count = len(message.attachments)
+        LOGGER.info(
+            "ブリッジ受信: guild=%s channel=%s author=%s message_id=%s routes=%s attachments=%s",
+            getattr(message.guild, "id", "unknown"),
+            message.channel.id,
+            getattr(message.author, "id", "unknown"),
+            message.id,
+            route_count,
+            attachment_count,
+        )
+
+    def _log_bridge_send_start(
+        self,
+        *,
+        message: discord.Message,
+        route: ChannelRoute,
+        payload: MirrorPayload,
+    ) -> None:
+        LOGGER.info(
+            "ブリッジ送信開始: source_message=%s -> dst=%s/%s payload=(embed=%s, files=%s, content_len=%s)",
+            message.id,
+            route.dst.guild,
+            route.dst.channel,
+            bool(payload.embed),
+            len(payload.files),
+            len(payload.content or ""),
+        )
+
+    def _log_bridge_send_success(
+        self,
+        *,
+        source_message: discord.Message,
+        mirrored_message: discord.Message,
+        route: ChannelRoute,
+        payload: MirrorPayload,
+    ) -> None:
+        LOGGER.info(
+            "ブリッジ送信完了: source=%s dst=%s/%s mirrored=%s payload=(embed=%s, files=%s)",
+            source_message.id,
+            route.dst.guild,
+            route.dst.channel,
+            mirrored_message.id,
+            bool(payload.embed),
+            len(payload.files),
+        )
 
     async def _prepare_attachments(self, attachments: Iterable[discord.Attachment]) -> AttachmentBundle:
         files: List[discord.File] = []
