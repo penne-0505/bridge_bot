@@ -41,6 +41,16 @@ poetry run python main.py
 
 起動時に `BRIDGE_ROUTES_ENABLED=true` を設定していないと `data/channel_routes.json` がフォールバックで生成されます。
 
+## 起動前診断
+
+`main.py` の起動時に、Bot が正しく動作できるか確認するセルフチェックが自動で実行されます。
+
+- `DISCORD_BOT_TOKEN` と `DATABASE_URL` の検出および接続性を検証します。
+- `data/` ディレクトリの読み書き可否を確認します。
+- ブリッジルートの設定（環境変数または `data/channel_routes.json`）を検証し、問題があれば警告/エラーをログに出力します。
+
+ログに `BridgeBot 起動前診断` という見出しが出力されるので、運用時は最初にこのブロックを確認することで環境状態を素早く把握できます。
+
 ## データディレクトリ
 
 `data/channel_routes.json` のみがこのリポジトリで生成されるため、ソース管理にも含めやすくなっています。運用で Postgres の `bridge_messages` テーブルに保存されているデータを調整したい場合は、`docs/bridge_message_store.md` に記載のスクリプトや SQL をお使いください。

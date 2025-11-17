@@ -4,6 +4,7 @@ import asyncio
 import logging
 
 from app import build_bridge_app, load_config
+from app.diagnostics import log_startup_diagnostics
 
 
 LOGGER = logging.getLogger(__name__)
@@ -16,6 +17,7 @@ async def run_bridge_bot() -> None:
         LOGGER.exception("bridge_base の設定読み込みに失敗しました。")
         return
 
+    log_startup_diagnostics(config)
     app = await build_bridge_app(config)
     await app.run()
 
