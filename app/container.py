@@ -56,6 +56,7 @@ def _load_bridge_dependencies(config: AppConfig) -> _BridgeDependencies:
             strict=config.bridge_routes_env.strict,
         )
     )
+    _log_loaded_routes(routes)
     return _BridgeDependencies(
         profile_store=profile_store,
         message_store=message_store,
@@ -81,6 +82,22 @@ async def build_bridge_app(config: AppConfig) -> BridgeApplication:
         client=client,
         token=config.discord.token,
         db_pool=bridge_dependencies.db_pool,
+    )
+
+
+def _log_loaded_routes(routes: list[ChannelRoute]) -> None:
+    if not routes:
+        LOGGER.info("起動時に読み込まれたブリッジ設定はありません。")
+        return
+
+    description = ", ".join(
+        f"{route.src.guild}/{route.src.channel}->{route.dst.guild}/{route.dst.channel}"
+        for route in routes
+    )
+    LOGGER.info(
+        "起動時に %s 件のブリッジ設定を読み込みました: %s",
+        len(routes),
+        description,
     )
 
 
