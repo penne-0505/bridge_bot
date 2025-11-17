@@ -28,8 +28,18 @@
 ```json
 [
   {
-    "src": {"guild": 111111111111111111, "channel": 222222222222222222},
-    "dst": {"guild": 333333333333333333, "channel": 444444444444444444}
+    "src": {
+      "guild": 111111111111111111,
+      "channel": 222222222222222222,
+      "guild_name": "SourceGuild",
+      "channel_name": "#source"
+    },
+    "dst": {
+      "guild": 333333333333333333,
+      "channel": 444444444444444444,
+      "guild_name": "DestGuild",
+      "channel_name": "#dest"
+    }
   }
 ]
 ```
@@ -37,6 +47,7 @@
 - `guild` / `channel` は Discord のスノーフレーク ID を整数で指定してください。
 - `dst` へのルートは複数定義できます。同一ペアを複数回登録した場合は重複として扱われます。
 - `BRIDGE_ROUTES_REQUIRE_RECIPROCAL=true` のときは、`src` と `dst` を入れ替えたもう一方のルートも必ず定義してください。
+- `guild_name` / `channel_name` は任意指定です。設定すると起動ログや送受信ログにギルド名・チャンネル名が表示され、運用時の判別が容易になります。
 
 ### 設定例 (fish shell)
 

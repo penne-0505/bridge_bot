@@ -12,6 +12,8 @@ LOGGER = logging.getLogger(__name__)
 class ChannelEndpoint:
     guild: int
     channel: int
+    guild_name: str | None = None
+    channel_name: str | None = None
 
     @classmethod
     def from_payload(cls, payload: dict) -> "ChannelEndpoint":
@@ -19,10 +21,33 @@ class ChannelEndpoint:
         channel = int(payload["channel"])
         if guild <= 0 or channel <= 0:
             raise ValueError("guild と channel は正の整数で指定してください。")
-        return cls(guild=guild, channel=channel)
+        return cls(
+            guild=guild,
+            channel=channel,
+            guild_name=cls._normalize_name(payload.get("guild_name")),
+            channel_name=cls._normalize_name(payload.get("channel_name")),
+        )
 
     def key(self) -> tuple[int, int]:
         return (self.guild, self.channel)
+
+    @staticmethod
+    def _normalize_name(value: object | None) -> str | None:
+        if value is None:
+            return None
+        text = str(value).strip()
+        return text or None
+
+    def describe(self) -> str:
+        guild_label = (
+            f"{self.guild_name}({self.guild})" if self.guild_name else str(self.guild)
+        )
+        channel_label = (
+            f"{self.channel_name}({self.channel})"
+            if self.channel_name
+            else str(self.channel)
+        )
+        return f"guild={guild_label}, channel={channel_label}"
 
 
 @dataclass(frozen=True, slots=True)

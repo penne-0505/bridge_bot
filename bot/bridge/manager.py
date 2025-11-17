@@ -100,9 +100,8 @@ class ChannelBridgeManager:
             destination = await self._resolve_channel(route.dst)
             if destination is None:
                 LOGGER.warning(
-                    "ブリッジ先のチャンネルが見つかりません: guild=%s channel=%s",
-                    route.dst.guild,
-                    route.dst.channel,
+                    "ブリッジ先のチャンネルが見つかりません: %s",
+                    route.dst.describe(),
                 )
                 continue
 
@@ -141,10 +140,9 @@ class ChannelBridgeManager:
                 mirrored = await destination.send(**send_kwargs)
             except discord.HTTPException as exc:
                 LOGGER.error(
-                    "メッセージブリッジ送信に失敗しました: source=%s destination=%s/%s channel=%s error=%s",
+                    "メッセージブリッジ送信に失敗しました: source=%s dst=%s destination_channel_id=%s error=%s",
                     message.id,
-                    route.dst.guild,
-                    route.dst.channel,
+                    route.dst.describe(),
                     getattr(destination, "id", "unknown"),
                     exc,
                 )
@@ -527,11 +525,11 @@ class ChannelBridgeManager:
         route: ChannelRoute,
         payload: MirrorPayload,
     ) -> None:
+        dst_label = route.dst.describe()
         LOGGER.info(
-            "ブリッジ送信開始: source_message=%s -> dst=%s/%s payload=(embed=%s, files=%s, content_len=%s)",
+            "ブリッジ送信開始: source_message=%s -> dst=%s payload=(embed=%s, files=%s, content_len=%s)",
             message.id,
-            route.dst.guild,
-            route.dst.channel,
+            dst_label,
             bool(payload.embed),
             len(payload.files),
             len(payload.content or ""),
@@ -545,11 +543,11 @@ class ChannelBridgeManager:
         route: ChannelRoute,
         payload: MirrorPayload,
     ) -> None:
+        dst_label = route.dst.describe()
         LOGGER.info(
-            "ブリッジ送信完了: source=%s dst=%s/%s mirrored=%s payload=(embed=%s, files=%s)",
+            "ブリッジ送信完了: source=%s dst=%s mirrored=%s payload=(embed=%s, files=%s)",
             source_message.id,
-            route.dst.guild,
-            route.dst.channel,
+            dst_label,
             mirrored_message.id,
             bool(payload.embed),
             len(payload.files),

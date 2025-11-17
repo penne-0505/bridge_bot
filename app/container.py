@@ -90,15 +90,16 @@ def _log_loaded_routes(routes: list[ChannelRoute]) -> None:
         LOGGER.info("起動時に読み込まれたブリッジ設定はありません。")
         return
 
-    description = ", ".join(
-        f"{route.src.guild}/{route.src.channel}->{route.dst.guild}/{route.dst.channel}"
-        for route in routes
-    )
+    description = ", ".join(_describe_route(route) for route in routes)
     LOGGER.info(
         "起動時に %s 件のブリッジ設定を読み込みました: %s",
         len(routes),
         description,
     )
+
+
+def _describe_route(route: ChannelRoute) -> str:
+    return f"{route.src.describe()} -> {route.dst.describe()}"
 
 
 __all__ = ["BridgeApplication", "build_bridge_app"]
