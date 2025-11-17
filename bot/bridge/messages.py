@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from typing import Iterable, List, Optional
 
 from psycopg.rows import dict_row
+from psycopg.types.json import Json
 from psycopg_pool import ConnectionPool
 
 
@@ -125,13 +126,13 @@ class BridgeMessageStore:
                     """,
                     (
                         source_id,
-                        normalized_destination_ids,
+                        Json(normalized_destination_ids),
                         profile_seed,
                         display_name,
                         avatar_url,
                         dicebear_failed,
                         attachment_payload["image_filename"],
-                        attachment_payload["notes"],
+                        Json(attachment_payload["notes"]),
                     ),
                 )
 
@@ -173,7 +174,7 @@ class BridgeMessageStore:
                         updated_at = clock_timestamp()
                     WHERE source_id = %s
                     """,
-                    (image_filename, notes, source_id),
+                    (image_filename, Json(notes), source_id),
                 )
 
     def delete(self, source_id: int) -> bool:
@@ -195,7 +196,7 @@ class BridgeMessageStore:
                     WHERE destination_ids @> %s
                     LIMIT 1
                     """,
-                    ([destination_id],),
+                    (Json([destination_id]),),
                 )
                 record = cur.fetchone()
 
@@ -214,7 +215,7 @@ class BridgeMessageStore:
                             updated_at = clock_timestamp()
                         WHERE source_id = %s
                         """,
-                        (normalized, record["source_id"]),
+                        (Json(normalized), record["source_id"]),
                     )
         else:
             self.delete(record["source_id"])

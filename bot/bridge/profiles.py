@@ -7,6 +7,7 @@ from typing import Dict, List
 from urllib.parse import quote_plus
 
 from psycopg.rows import dict_row
+from psycopg.types.json import Json
 from psycopg_pool import ConnectionPool
 
 LOGGER = logging.getLogger(__name__)
@@ -89,7 +90,7 @@ class BridgeProfileStore:
                     VALUES (%s, %s, %s, clock_timestamp())
                     ON CONFLICT (id) DO NOTHING
                     """,
-                    (DICTIONARY_ID, DEFAULT_ADJECTIVES, DEFAULT_NOUNS),
+                    (DICTIONARY_ID, Json(DEFAULT_ADJECTIVES), Json(DEFAULT_NOUNS)),
                 )
                 LOGGER.info("Bridge profile dictionary seeded with default adjectives and nouns.")
                 return {
