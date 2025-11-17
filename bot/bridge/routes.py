@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 import logging
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Iterable, List, Sequence, Set, Tuple
 
 LOGGER = logging.getLogger(__name__)
@@ -32,93 +31,45 @@ class ChannelRoute:
     dst: ChannelEndpoint
 
 
-DEFAULT_ROUTE_SAMPLE = [
-    {
-        "src": {"guild": 111111111111111111, "channel": 222222222222222222},
-        "dst": {"guild": 333333333333333333, "channel": 444444444444444444},
-    },
-    {
-        "src": {"guild": 333333333333333333, "channel": 444444444444444444},
-        "dst": {"guild": 111111111111111111, "channel": 222222222222222222},
-    },
-]
-
-
 def load_channel_routes(
-    path: Path,
     *,
     env_enabled: bool = False,
     env_payload: str | None = None,
     require_reciprocal: bool = False,
     strict: bool = False,
 ) -> Sequence[ChannelRoute]:
-    """Load channel routing configuration from environment variables or JSON file."""
+    """Load channel routing configuration from environment variables only."""
 
-    if env_enabled:
-        if env_payload is None:
-            raise ValueError(
-                "BRIDGE_ROUTES_ENABLED=true ですが BRIDGE_ROUTES が未設定です。"
-            )
+    if not env_enabled:
         LOGGER.info(
-            "環境変数 BRIDGE_ROUTES を使用してチャンネルブリッジ設定をロードします。"
-        )
-        try:
-            payload: Iterable[dict] = json.loads(env_payload)
-        except json.JSONDecodeError as exc:
-            raise ValueError("BRIDGE_ROUTES の JSON 解析に失敗しました。") from exc
-        routes = _parse_routes_payload(
-            payload,
-            source="environment",
-            require_reciprocal=require_reciprocal,
-            strict=strict,
-        )
-        if routes:
-            LOGGER.info(
-                "チャンネルブリッジ設定を %s 件ロードしました。(source=environment)",
-                len(routes),
-            )
-        return routes
-
-    return _load_routes_from_file(
-        path,
-        require_reciprocal=require_reciprocal,
-        strict=strict,
-    )
-
-
-def _load_routes_from_file(
-    path: Path,
-    *,
-    require_reciprocal: bool,
-    strict: bool,
-) -> Sequence[ChannelRoute]:
-    path.parent.mkdir(parents=True, exist_ok=True)
-
-    if not path.exists():
-        path.write_text(
-            json.dumps(DEFAULT_ROUTE_SAMPLE, ensure_ascii=False, indent=2),
-            encoding="utf-8",
-        )
-        LOGGER.warning(
-            "チャンネルブリッジ設定が見つかりません。サンプルを作成しました: %s", path
+            "BRIDGE_ROUTES_ENABLED=false のためチャンネルブリッジ設定をロードしません。"
         )
         return ()
 
-    try:
-        payload: Iterable[dict] = json.loads(path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError as exc:
+    if env_payload is None:
         raise ValueError(
-            f"Failed to parse channel routing configuration ({path}): {exc}"
-        ) from exc
+            "BRIDGE_ROUTES_ENABLED=true ですが BRIDGE_ROUTES が未設定です。"
+        )
+
+    LOGGER.info(
+        "環境変数 BRIDGE_ROUTES を使用してチャンネルブリッジ設定をロードします。"
+    )
+    try:
+        payload: Iterable[dict] = json.loads(env_payload)
+    except json.JSONDecodeError as exc:
+        raise ValueError("BRIDGE_ROUTES の JSON 解析に失敗しました。") from exc
 
     routes = _parse_routes_payload(
         payload,
-        source=str(path),
+        source="environment",
         require_reciprocal=require_reciprocal,
         strict=strict,
     )
     if routes:
-        LOGGER.info("チャンネルブリッジ設定を %s 件ロードしました。", len(routes))
+        LOGGER.info(
+            "チャンネルブリッジ設定を %s 件ロードしました。(source=environment)",
+            len(routes),
+        )
     return routes
 
 

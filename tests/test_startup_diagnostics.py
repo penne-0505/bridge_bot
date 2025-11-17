@@ -38,21 +38,7 @@ def _run_diags(
     return {result.name: result for result in runner.run()}
 
 
-def test_startup_diagnostics_success_with_file_routes(tmp_path):
-    routes_file = tmp_path / "channel_routes.json"
-    routes_file.write_text(
-        json.dumps(
-            [
-                {
-                    "src": {"guild": 1, "channel": 10},
-                    "dst": {"guild": 2, "channel": 20},
-                }
-            ],
-            indent=2,
-        ),
-        encoding="utf-8",
-    )
-
+def test_startup_diagnostics_ok_when_routes_disabled(tmp_path):
     results = _run_diags(_config(), tmp_path)
 
     assert results["Discord トークン"].status is DiagnosticStatus.OK
@@ -61,9 +47,25 @@ def test_startup_diagnostics_success_with_file_routes(tmp_path):
     assert results["ブリッジルート"].status is DiagnosticStatus.OK
 
 
-def test_startup_diagnostics_warns_when_routes_file_missing(tmp_path):
-    results = _run_diags(_config(), tmp_path)
-    assert results["ブリッジルート"].status is DiagnosticStatus.WARNING
+def test_startup_diagnostics_success_with_env_routes(tmp_path):
+    routes_env = BridgeRouteEnvSettings(
+        enabled=True,
+        routes_json=json.dumps(
+            [
+                {
+                    "src": {"guild": 1, "channel": 10},
+                    "dst": {"guild": 2, "channel": 20},
+                }
+            ]
+        ),
+        require_reciprocal=False,
+        strict=False,
+    )
+    config = _config(routes_env=routes_env)
+
+    results = _run_diags(config, tmp_path)
+
+    assert results["ブリッジルート"].status is DiagnosticStatus.OK
 
 
 def test_startup_diagnostics_reports_env_payload_error(tmp_path):

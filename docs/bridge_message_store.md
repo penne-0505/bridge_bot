@@ -31,7 +31,7 @@ PY
 
 ## ルート設定変更時のコード再同期
 
-ルート定義 (`data/channel_routes.json` または `BRIDGE_ROUTES`) を更新したときは、対象の `source_id` レコードを削除することで再同期できます。影響範囲を掴みにくい場合は、`bridge_messages` テーブルをまるごと空にしても問題ありません。Postgres から削除するにはたとえば以下のように `psql` で実行できます。
+ルート定義（`BRIDGE_ROUTES` 環境変数で渡す JSON）を更新したときは、対象の `source_id` レコードを削除することで再同期できます。影響範囲を掴みにくい場合は、`bridge_messages` テーブルをまるごと空にしても問題ありません。Postgres から削除するにはたとえば以下のように `psql` で実行できます。
 
 ```bash
 psql "$DATABASE_URL" -c "DELETE FROM bridge_messages WHERE TRUE;"

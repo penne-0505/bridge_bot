@@ -50,7 +50,6 @@ class StartupDiagnostics:
         self._config = config
         base_dir = Path(__file__).resolve().parent.parent
         self._data_dir = Path(data_dir) if data_dir is not None else base_dir / "data"
-        self._routes_file = self._data_dir / "channel_routes.json"
         self._database_probe = database_probe or _default_database_probe
 
     def run(self) -> list[DiagnosticResult]:
@@ -108,62 +107,37 @@ class StartupDiagnostics:
 
     def _check_bridge_routes(self) -> DiagnosticResult:
         settings = self._config.bridge_routes_env
-        if settings.enabled:
-            if settings.routes_json is None:
-                return DiagnosticResult(
-                    name="ブリッジルート",
-                    status=DiagnosticStatus.ERROR,
-                    detail="BRIDGE_ROUTES_ENABLED=true ですが BRIDGE_ROUTES が未設定です。",
-                )
-
-            try:
-                routes = self._load_routes_from_env(settings.routes_json)
-            except Exception as exc:
-                return DiagnosticResult(
-                    name="ブリッジルート",
-                    status=DiagnosticStatus.ERROR,
-                    detail=f"環境変数 BRIDGE_ROUTES の検証に失敗しました: {exc}",
-                )
-
+        if not settings.enabled:
             return DiagnosticResult(
                 name="ブリッジルート",
                 status=DiagnosticStatus.OK,
-                detail=f"環境変数から {len(routes)} 件のルート設定を読み込みます。",
+                detail="BRIDGE_ROUTES_ENABLED=false のためルート同期は無効化されています。",
             )
 
-        if not self._routes_file.exists():
+        if settings.routes_json is None:
             return DiagnosticResult(
                 name="ブリッジルート",
-                status=DiagnosticStatus.WARNING,
-                detail=(
-                    f"{self._routes_file} が見つかりません。起動時にサンプルが作成されます。"
-                ),
+                status=DiagnosticStatus.ERROR,
+                detail="BRIDGE_ROUTES_ENABLED=true ですが BRIDGE_ROUTES が未設定です。",
             )
 
         try:
-            routes = load_channel_routes(
-                self._routes_file,
-                env_enabled=False,
-                env_payload=None,
-                require_reciprocal=settings.require_reciprocal,
-                strict=settings.strict,
-            )
+            routes = self._load_routes_from_env(settings.routes_json)
         except Exception as exc:
             return DiagnosticResult(
                 name="ブリッジルート",
                 status=DiagnosticStatus.ERROR,
-                detail=f"{self._routes_file} の読み込みに失敗しました: {exc}",
+                detail=f"環境変数 BRIDGE_ROUTES の検証に失敗しました: {exc}",
             )
 
         return DiagnosticResult(
             name="ブリッジルート",
             status=DiagnosticStatus.OK,
-            detail=f"{self._routes_file} から {len(routes)} 件のルート設定を読み込みます。",
+            detail=f"環境変数から {len(routes)} 件のルート設定を読み込みます。",
         )
 
     def _load_routes_from_env(self, payload: str) -> Sequence[ChannelRoute]:
         return load_channel_routes(
-            self._routes_file,
             env_enabled=True,
             env_payload=payload,
             require_reciprocal=self._config.bridge_routes_env.require_reciprocal,

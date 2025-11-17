@@ -6,7 +6,7 @@
 
 | 変数名 | 説明 | 例 |
 | --- | --- | --- |
-| `BRIDGE_ROUTES_ENABLED` | `true` に設定するとブリッジ機能が有効化され、`BRIDGE_ROUTES` からルートをロードします。`false` または未設定の場合、環境変数は無視されローカルファイルがフォールバックとして使用されます。 | `true` |
+| `BRIDGE_ROUTES_ENABLED` | `true` に設定するとブリッジ機能が有効化され、`BRIDGE_ROUTES` からルートをロードします。`false` または未設定の場合はルートを一切ロードせず、ブリッジ機能が無効になります。 | `true` |
 | `BRIDGE_ROUTES` | JSON 配列のルート定義。`BRIDGE_ROUTES_ENABLED=true` のとき必須です。 | `[{"src":{"guild":123,"channel":456},"dst":{"guild":789,"channel":101112}}]` |
 
 | `DATABASE_URL` | Postgres 接続文字列。`bridge_profiles`/`bridge_messages` テーブルにアクセスするために必須です。 | `postgresql://user:pass@host:5432/rin_bridge` |
@@ -47,8 +47,7 @@ set -x BRIDGE_ROUTES '[{"src":{"guild":123,"channel":456},"dst":{"guild":789,"ch
 
 ### フォールバックとローカル開発
 
-- `BRIDGE_ROUTES_ENABLED` を `true` 以外にすると環境変数は読み取られず、従来どおり `data/channel_routes.json` が使用されます。
-- `data/channel_routes.json` が存在しない場合はサンプルファイルを生成し、学習用に空ルートとして起動します。
+JSON ファイルからの読み込みはサポートしていません。ローカル開発でも `BRIDGE_ROUTES_ENABLED=true` と `BRIDGE_ROUTES='[...]'` を必ず設定してください。
 
 ### エラー時の挙動
 

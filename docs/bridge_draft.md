@@ -1,7 +1,7 @@
 # チャンネルブリッジ機能 要件ドラフト
 
 - **機能概要**: Bot起動中のみ有効なメッセージ転送機能を提供し、指定されたチャンネル間で本文・添付・リアクションを同期する。元メッセージと転送メッセージのID対応は揮発メモリで管理し、取得不能や削除に応じてクリーンアップする。
-- **ルーティング設定**: 本番運用時は `BRIDGE_ROUTES_ENABLED=true` と `BRIDGE_ROUTES` 環境変数でルート定義を渡す。ローカルデバッグでは `data/channel_routes.json` をフォールバックとして利用し、未存在時はサンプルを自動生成して案内する。
+- **ルーティング設定**: 本番運用/ローカルを問わず `BRIDGE_ROUTES_ENABLED=true` と `BRIDGE_ROUTES` 環境変数でルート定義を渡す。JSON ファイルからの読み込みは行わない。
 - **プロフィール装飾**: メッセージ送信者は DiceBear Avatar API（`https://api.dicebear.com/9.x/bottts-neutral/svg?scale=80`）を用いた擬似プロフィールで装飾。転送ごとにシードを決めて URL を生成し、サービスの利用規約・レート制限を遵守する。API障害時はBot既定アイコンへフォールバックする。
 - **ランダム名称生成**: 形容詞120語・名詞200語程度の辞書を独自に用意し、PostgreSQL の `bridge_profiles` テーブルで一元管理。転送時は「形容詞+一般名詞」の組み合わせで日本語表示名を生成し、DiceBear のシードと連動させる。
 - **メディア転送方針**: Embed化できない添付は本文に `(画像)` などの簡易プレースホルダーや元メッセージの直リンクを追記し、情報欠落を避ける。画像1件はEmbed化、それ以降は添付として送付。
@@ -16,7 +16,7 @@
   - ステッカーや返信は本文に `(ステッカー: 名称)` や `▶ Reply to <jump_url>` を追記して参照先を明示する。
   - DiceBearの生成に失敗した場合はBot既定アイコンに切り替え、本文へ `(DiceBear生成失敗)` を添える。
 - **データスキーマ素案**:
-  - `data/channel_routes.json`: `List[{"src": {"guild": int, "channel": int}, "dst": {"guild": int, "channel": int}}]`
+  - `BRIDGE_ROUTES` 環境変数: `List[{"src": {"guild": int, "channel": int}, "dst": {"guild": int, "channel": int}}]`
   - PostgreSQL `bridge_profiles` テーブル: `id TEXT PRIMARY KEY`, `adjectives`/`nouns` JSONB に辞書を格納し、`updated_at` で最後の更新時刻を追跡
   - PostgreSQL `bridge_messages` テーブル: `source_id BIGINT PRIMARY KEY`, `destination_ids` JSONB、表示名・アイコン・添付メタを保存
   - 揮発メッセージマップ: `Dict[int, int]` をメモリ上に保持し、双方向登録

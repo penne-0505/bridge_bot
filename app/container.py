@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from pathlib import Path
 
 from psycopg_pool import ConnectionPool
 
@@ -19,11 +18,6 @@ from bot.bridge import (
 
 
 LOGGER = logging.getLogger(__name__)
-
-BASE_DIR = Path(__file__).resolve().parent.parent
-DATA_DIR_NAME = "data"
-CHANNEL_ROUTES_FILE_NAME = "channel_routes.json"
-
 
 @dataclass(slots=True)
 class BridgeApplication:
@@ -49,20 +43,13 @@ class _BridgeDependencies:
     db_pool: ConnectionPool
 
 
-def _initialise_data_directory() -> Path:
-    data_dir = BASE_DIR / DATA_DIR_NAME
-    data_dir.mkdir(parents=True, exist_ok=True)
-    return data_dir
-
-
-def _load_bridge_dependencies(data_dir: Path, config: AppConfig) -> _BridgeDependencies:
+def _load_bridge_dependencies(config: AppConfig) -> _BridgeDependencies:
     pool = create_connection_pool(config.database_url)
     ensure_schema(pool)
     profile_store = BridgeProfileStore(pool)
     message_store = BridgeMessageStore(pool)
     routes = list(
         load_channel_routes(
-            data_dir / CHANNEL_ROUTES_FILE_NAME,
             env_enabled=config.bridge_routes_env.enabled,
             env_payload=config.bridge_routes_env.routes_json,
             require_reciprocal=config.bridge_routes_env.require_reciprocal,
@@ -78,8 +65,7 @@ def _load_bridge_dependencies(data_dir: Path, config: AppConfig) -> _BridgeDepen
 
 
 async def build_bridge_app(config: AppConfig) -> BridgeApplication:
-    data_dir = _initialise_data_directory()
-    bridge_dependencies = _load_bridge_dependencies(data_dir, config)
+    bridge_dependencies = _load_bridge_dependencies(config)
 
     client = BridgeBotClient()
     client.bridge_manager = ChannelBridgeManager(

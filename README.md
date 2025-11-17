@@ -8,7 +8,7 @@
 - `bot/` : `BridgeBotClient`、ブリッジコマンド、ChannelBridgeManager を含むロジック。
 - `bot/bridge/` : プロフィール・メッセージストアとルートローダー。メタデータは PostgreSQL の `bridge_profiles` と `bridge_messages` に保存されます。
 - `docs/` : 設定、運用手順、Postgres セットアップのガイド。
-- `data/` : `channel_routes.json` をフォールバックして保存するディレクトリ。環境変数の `BRIDGE_ROUTES` が有効でないときのみ使用します。
+- `data/` : 起動前診断などで一時ファイルを書き込む作業ディレクトリ。
 
 ## 環境変数
 
@@ -16,7 +16,7 @@
 | --- | --- | --- |
 | `DISCORD_BOT_TOKEN` | Discord Bot の Bot トークン。必須。 | - |
 | `DATABASE_URL` | Postgres 接続文字列。例: `postgresql://user:pass@db:5432/rin_bridge`。 | 起動時に未設定だとエラーになります。 |
-| `BRIDGE_ROUTES_ENABLED` | `true` で環境変数からルート定義を読み込む。 | `false` または未設定であれば `data/channel_routes.json` が使われます。 |
+| `BRIDGE_ROUTES_ENABLED` | `true` で環境変数からルート定義を読み込み、メッセージブリッジ機能を有効化。`false` ならルートはロードされません。 | 既定値 `false`。 |
 | `BRIDGE_ROUTES` | JSON 配列でルートを定義。`BRIDGE_ROUTES_ENABLED=true` で必須。 | - |
 | `BRIDGE_ROUTES_REQUIRE_RECIPROCAL` | `true` のとき双方向ルートが必須。 | 既定値 `false`。 |
 | `BRIDGE_ROUTES_STRICT` | `true` のとき不正なルートを検出すると起動を中断。 | 既定値 `false`。 |
@@ -31,7 +31,7 @@ Postgres 上で `bridge_profiles` / `bridge_messages` テーブルを管理し�
 
 1. `poetry install` で依存関係をインストール。
 2. Postgres を用意し、`DATABASE_URL` を含む環境変数を設定する。必要があれば `docs/guide/postgresql_setup.md` の SQL を `psql` で実行する。
-3. `DISCORD_BOT_TOKEN` とブリッジルートの情報を環境変数で渡す（または `data/channel_routes.json` を用意）。
+3. `DISCORD_BOT_TOKEN` とブリッジルートの情報を環境変数で渡す。
 
 ## 実行方法
 
@@ -39,7 +39,7 @@ Postgres 上で `bridge_profiles` / `bridge_messages` テーブルを管理し�
 poetry run python main.py
 ```
 
-起動時に `BRIDGE_ROUTES_ENABLED=true` を設定していないと `data/channel_routes.json` がフォールバックで生成されます。
+ブリッジルートは `BRIDGE_ROUTES_ENABLED=true` と `BRIDGE_ROUTES='[...]'` の組み合わせでのみ読み込まれます。
 
 ## 起動前診断
 
@@ -47,10 +47,10 @@ poetry run python main.py
 
 - `DISCORD_BOT_TOKEN` と `DATABASE_URL` の検出および接続性を検証します。
 - `data/` ディレクトリの読み書き可否を確認します。
-- ブリッジルートの設定（環境変数または `data/channel_routes.json`）を検証し、問題があれば警告/エラーをログに出力します。
+- ブリッジルートの設定（環境変数 `BRIDGE_ROUTES`）を検証し、問題があれば警告/エラーをログに出力します。
 
 ログに `BridgeBot 起動前診断` という見出しが出力されるので、運用時は最初にこのブロックを確認することで環境状態を素早く把握できます。
 
 ## データディレクトリ
 
-`data/channel_routes.json` のみがこのリポジトリで生成されるため、ソース管理にも含めやすくなっています。運用で Postgres の `bridge_messages` テーブルに保存されているデータを調整したい場合は、`docs/bridge_message_store.md` に記載のスクリプトや SQL をお使いください。
+起動前診断では `data/` ディレクトリへの書き込み可否を確認します。運用で Postgres の `bridge_messages` テーブルに保存されているデータを調整したい場合は、`docs/bridge_message_store.md` に記載のスクリプトや SQL をお使いください。
