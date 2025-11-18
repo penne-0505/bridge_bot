@@ -16,6 +16,7 @@ dependencies = [
 
 [project.scripts]
 general-py-discord-bot = "main:main"
+bridge-routes-cli = "bot.bridge.routes_cli:main"
 
 [tool.poetry]
 packages = [

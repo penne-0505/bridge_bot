@@ -65,3 +65,17 @@ JSON ファイルからの読み込みはサポートしていません。ロー
 - JSON 解析エラーや正の整数でない ID、必須キー不足は `BRIDGE_ROUTES_STRICT` の値に応じて処理されます。
 - `BRIDGE_ROUTES_REQUIRE_RECIPROCAL=true` が有効な状態で逆方向ルートが不足している場合は常にエラーになります。
 - 起動ログに詳細な理由が記録されるので、CI/CD などで検証したい場合はログを確認してください。
+
+## 対話的に `channel_routes.json` を作成する
+
+本番環境に渡す `BRIDGE_ROUTES` を手で書く代わりに、付属の CLI ツールで `channel_routes.json` を対話的に生成できます。
+
+```bash
+poetry run bridge-routes-cli
+```
+
+- プロンプトに従って `src.guild` / `src.channel` / `dst.guild` / `dst.channel` を入力します。
+- 任意で `guild_name` / `channel_name` のラベルも指定できます（空 Enter でスキップ）。
+- 必要なルートをすべて入力したあと、「逆方向ルートを自動生成しますか？」の質問で `y` を選ぶと、`BRIDGE_ROUTES_REQUIRE_RECIPROCAL=true` 向けに不足分の逆方向ルートが追加されます。
+
+実行が完了すると、カレントディレクトリに `channel_routes.json` が書き出されるとともに、`BRIDGE_ROUTES` にそのままコピペできる 1 行の JSON と、bash/fish 用の設定例が標準出力に表示されます。
