@@ -9,7 +9,7 @@
 | `BRIDGE_ROUTES_ENABLED` | `true` に設定するとブリッジ機能が有効化され、`BRIDGE_ROUTES` からルートをロードします。`false` または未設定の場合はルートを一切ロードせず、ブリッジ機能が無効になります。 | `true` |
 | `BRIDGE_ROUTES` | JSON 配列のルート定義。`BRIDGE_ROUTES_ENABLED=true` のとき必須です。 | `[{"src":{"guild":123,"channel":456},"dst":{"guild":789,"channel":101112}}]` |
 
-| `DATABASE_URL` | Postgres 接続文字列。`bridge_profiles`/`bridge_messages` テーブルにアクセスするために必須です。 | `postgresql://user:pass@host:5432/rin_bridge` |
+| `SUPABASE_DB_URL` | Supabase PostgreSQL 接続文字列。`bridge_profiles`/`bridge_messages` テーブルにアクセスするために必須です。 | `postgresql://user:pass@host:5432/rin_bridge` |
 
 ## 任意環境変数
 
@@ -18,9 +18,9 @@
 | `BRIDGE_ROUTES_REQUIRE_RECIPROCAL` | `true` で双方向ルートの存在を検証します。片方向のみの定義が見つかると起動に失敗します。 | `false` |
 | `BRIDGE_ROUTES_STRICT` | `true` で重複・形式不備・IDの不正を検出した瞬間に起動を中断します。`false` の場合は該当ルートのみ無視し、警告ログを残して起動を継続します。 | `false` |
 
-## `DATABASE_URL` とテーブル
+## `SUPABASE_DB_URL` とテーブル
 
-- `DATABASE_URL` は Postgres 接続文字列で、Bot 起動時に `bridge_profiles`/`bridge_messages` テーブルへアクセスするために必ず設定してください。接続先のテーブルが存在しない場合、`app/db.py` の `ensure_schema` が `CREATE TABLE IF NOT EXISTS` を実行します。
+- `SUPABASE_DB_URL` は Supabase PostgreSQL 接続文字列で、Bot 起動時に `bridge_profiles`/`bridge_messages` テーブルへアクセスするために必ず設定してください。接続先のテーブルが存在しない場合、`app/db.py` の `ensure_schema` が `CREATE TABLE IF NOT EXISTS` を実行します。
 - 詳細なセットアップや手動の `psql` 操作は [docs/guide/postgresql_setup.md](docs/guide/postgresql_setup.md) を参照してください。
 
 ### JSON フォーマット

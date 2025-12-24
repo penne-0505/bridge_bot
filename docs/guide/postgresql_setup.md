@@ -1,17 +1,17 @@
-# PostgreSQL セットアップ
+# Supabase PostgreSQL セットアップ
 
-`bridge_bot` は `DATABASE_URL` に設定した Postgres インスタンスと通信して `bridge_profiles` / `bridge_messages` テーブルを利用します。起動時にテーブルがなければ `app/db.py` 内の `ensure_schema` が `CREATE TABLE IF NOT EXISTS` を実行しますが、事前に手動でセットアップしたい場合は以下の手順を参考にしてください。
+`bridge_bot` は `SUPABASE_DB_URL` に設定した Supabase PostgreSQL インスタンスと通信して `bridge_profiles` / `bridge_messages` テーブルを利用します。起動時にテーブルがなければ `app/db.py` 内の `ensure_schema` が `CREATE TABLE IF NOT EXISTS` を実行しますが、事前に手動でセットアップしたい場合は以下の手順を参考にしてください。
 
-## 1. データベースの用意
+## 1. Supabase プロジェクトの用意
 
-運用環境で Postgres インスタンスを用意し、Bot 専用のユーザーとデータベースを作成してください。
+Supabase でプロジェクトを作成し、PostgreSQL データベースを用意します。
 
-```sql
-CREATE ROLE bridge_user LOGIN PASSWORD 'secret';
-CREATE DATABASE rin_bridge WITH OWNER bridge_user;
-```
+Supabase ダッシュボードから：
+1. 新しいプロジェクトを作成
+2. データベース設定から接続情報を取得
+3. 必要に応じてデータベースのパスワードをリセット
 
-必要に応じてネットワークやファイアウォールを設定し、ZooKeeper などに `DATABASE_URL` を伝播させる準備を行います。
+Supabase は自動的にデータベースを用意するため、手動でのデータベース作成は不要です。
 
 ## 2. スキーマを作成する
 
@@ -40,20 +40,20 @@ CREATE TABLE IF NOT EXISTS bridge_messages (
 CREATE INDEX IF NOT EXISTS bridge_messages_updated_at_idx ON bridge_messages (updated_at);
 ```
 
-## 3. `DATABASE_URL` の設定
+## 3. `SUPABASE_DB_URL` の設定
 
-起動時は次のような接続文字列を環境変数 `DATABASE_URL` にセットしてください。
+Supabase ダッシュボードの Settings > Database から PostgreSQL 接続文字列を取得し、環境変数 `SUPABASE_DB_URL` にセットしてください。
 
 ```
-DATABASE_URL=postgresql://bridge_user:secret@db-host:5432/rin_bridge
+SUPABASE_DB_URL=postgresql://postgres.[project-ref]:[password]@aws-0-[region].pooler.supabase.com:6543/postgres
 ```
 
-必要に応じて SSL モード `sslmode=require` やタイムゾーンなどのクエリパラメータも付加できます。
+Supabase では接続プーリングを利用することを推奨します。Transaction モードまたは Session モードの接続文字列を使用してください。
 
 ## 4. 手動メンテナンスのヒント
 
-- `psql` でテーブルの構造を確認: `psql "$DATABASE_URL" -c '\d bridge_messages'`
+- Supabase ダッシュボードの SQL Editor または `psql` でテーブルの構造を確認: `psql "$SUPABASE_DB_URL" -c '\d bridge_messages'`
 - 古いメタデータを削除するには `docs/bridge_message_store.md` に記載のスクリプトを使うか、直接 `DELETE FROM bridge_messages WHERE updated_at < NOW() - INTERVAL '24 hours'` を実行してください。
-- Postgres 側で監視する場合は `bridge_messages_updated_at_idx` を使って `pg_stat_statements` などにアクセスすると purge の実行状況を追跡できます。
+- Supabase ダッシュボードの Database > Logs セクションでクエリの実行状況を監視できます。
 
 このドキュメントは `docs/plan/postgresql_migration.md` にあるスキーマ案を踏まえて作成しており、今後の拡張でも同じ SQL をベースにできます。

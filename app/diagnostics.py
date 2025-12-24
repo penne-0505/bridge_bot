@@ -77,13 +77,13 @@ class StartupDiagnostics:
             return DiagnosticResult(
                 name="PostgreSQL 接続",
                 status=DiagnosticStatus.ERROR,
-                detail=f"DATABASE_URL への接続に失敗しました: {exc}",
+                detail=f"SUPABASE_DB_URL への接続に失敗しました: {exc}",
             )
 
         return DiagnosticResult(
             name="PostgreSQL 接続",
             status=DiagnosticStatus.OK,
-            detail="DATABASE_URL への接続確認に成功しました。",
+            detail="SUPABASE_DB_URL への接続確認に成功しました。",
         )
 
     def _check_data_directory(self) -> DiagnosticResult:
