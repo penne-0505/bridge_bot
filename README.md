@@ -15,7 +15,7 @@
 | 変数名 | 説明 | 備考 |
 | --- | --- | --- |
 | `DISCORD_BOT_TOKEN` | Discord Bot の Bot トークン。必須。 | - |
-| `DATABASE_URL` | Postgres 接続文字列。例: `postgresql://user:pass@db:5432/rin_bridge`。 | 起動時に未設定だとエラーになります。 |
+| `SUPABASE_DB_URL` | Supabase PostgreSQL 接続文字列。例: `postgresql://user:pass@db:5432/rin_bridge`。 | 起動時に未設定だとエラーになります。 |
 | `BRIDGE_ROUTES_ENABLED` | `true` で環境変数からルート定義を読み込み、メッセージブリッジ機能を有効化。`false` ならルートはロードされません。 | 既定値 `false`。 |
 | `BRIDGE_ROUTES` | JSON 配列でルートを定義。`BRIDGE_ROUTES_ENABLED=true` で必須。 | - |
 | `BRIDGE_ROUTES_REQUIRE_RECIPROCAL` | `true` のとき双方向ルートが必須。 | 既定値 `false`。 |
@@ -25,12 +25,12 @@
 
 ## データベース
 
-Postgres 上で `bridge_profiles` / `bridge_messages` テーブルを管理し、サーバー間での運用監視性を高めます。テーブルの作成や `DATABASE_URL` の準備手順は [docs/guide/postgresql_setup.md](docs/guide/postgresql_setup.md) にまとめています。起動時にテーブルがなければ自動生成されますが、手動でのセットアップや運用チェックも同ドキュメントをご利用ください。
+Supabase の PostgreSQL 上で `bridge_profiles` / `bridge_messages` テーブルを管理し、サーバー間での運用監視性を高めます。テーブルの作成や `SUPABASE_DB_URL` の準備手順は [docs/guide/postgresql_setup.md](docs/guide/postgresql_setup.md) にまとめています。起動時にテーブルがなければ自動生成されますが、手動でのセットアップや運用チェックも同ドキュメントをご利用ください。
 
 ## セットアップ
 
 1. `poetry install` で依存関係をインストール。
-2. Postgres を用意し、`DATABASE_URL` を含む環境変数を設定する。必要があれば `docs/guide/postgresql_setup.md` の SQL を `psql` で実行する。
+2. Supabase プロジェクトを用意し、`SUPABASE_DB_URL` を含む環境変数を設定する。必要があれば `docs/guide/postgresql_setup.md` の SQL を `psql` で実行する。
 3. `DISCORD_BOT_TOKEN` とブリッジルートの情報を環境変数で渡す。
 
 ## 実行方法
@@ -45,7 +45,7 @@ poetry run python main.py
 
 `main.py` の起動時に、Bot が正しく動作できるか確認するセルフチェックが自動で実行されます。
 
-- `DISCORD_BOT_TOKEN` と `DATABASE_URL` の検出および接続性を検証します。
+- `DISCORD_BOT_TOKEN` と `SUPABASE_DB_URL` の検出および接続性を検証します。
 - `data/` ディレクトリの読み書き可否を確認します。
 - ブリッジルートの設定（環境変数 `BRIDGE_ROUTES`）を検証し、問題があれば警告/エラーをログに出力します。
 
@@ -53,4 +53,4 @@ poetry run python main.py
 
 ## データディレクトリ
 
-起動前診断では `data/` ディレクトリへの書き込み可否を確認します。運用で Postgres の `bridge_messages` テーブルに保存されているデータを調整したい場合は、`docs/bridge_message_store.md` に記載のスクリプトや SQL をお使いください。
+起動前診断では `data/` ディレクトリへの書き込み可否を確認します。運用で Supabase の `bridge_messages` テーブルに保存されているデータを調整したい場合は、`docs/bridge_message_store.md` に記載のスクリプトや SQL をお使いください。

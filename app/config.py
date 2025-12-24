@@ -61,7 +61,7 @@ def load_config(env_file: str | Path | None = None) -> AppConfig:
 
     token = _prepare_client_token(raw_token=os.getenv("DISCORD_BOT_TOKEN"))
     bridge_routes_env = _load_bridge_env_settings()
-    database_url = _prepare_database_url(os.getenv("DATABASE_URL"))
+    database_url = _prepare_database_url(os.getenv("SUPABASE_DB_URL"))
 
     LOGGER.info("bridge_base 設定の読み込みが完了しました。")
 
@@ -112,7 +112,7 @@ def _read_bool_env(name: str, *, default: bool) -> bool:
 
 def _prepare_database_url(raw: str | None) -> str:
     if raw is None or raw.strip() == "":
-        raise ValueError("DATABASE_URL is not set in environment variables.")
+        raise ValueError("SUPABASE_DB_URL is not set in environment variables.")
     return raw.strip()
 
 
