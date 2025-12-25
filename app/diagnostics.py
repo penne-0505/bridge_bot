@@ -6,9 +6,10 @@ from enum import Enum, auto
 from pathlib import Path
 from typing import Callable, Sequence
 
-import psycopg
+from supabase import Client
 
 from app.config import AppConfig
+from app.db import create_supabase_client
 from bot.bridge.routes import ChannelRoute, load_channel_routes
 
 
@@ -28,13 +29,11 @@ class DiagnosticResult:
     detail: str
 
 
-DatabaseProbe = Callable[[str], None]
+DatabaseProbe = Callable[[Client], None]
 
 
-def _default_database_probe(conninfo: str) -> None:
-    with psycopg.connect(conninfo=conninfo, connect_timeout=5) as conn:  # type: ignore[arg-type]
-        with conn.cursor() as cur:
-            cur.execute("SELECT 1")
+def _default_database_probe(client: Client) -> None:
+    client.table("bridge_profiles").select("id").limit(1).execute()
 
 
 class StartupDiagnostics:
@@ -51,6 +50,10 @@ class StartupDiagnostics:
         base_dir = Path(__file__).resolve().parent.parent
         self._data_dir = Path(data_dir) if data_dir is not None else base_dir / "data"
         self._database_probe = database_probe or _default_database_probe
+        self._supabase = create_supabase_client(
+            self._config.supabase.url,
+            self._config.supabase.service_role_key,
+        )
 
     def run(self) -> list[DiagnosticResult]:
         results = [
@@ -72,18 +75,18 @@ class StartupDiagnostics:
 
     def _check_database_connectivity(self) -> DiagnosticResult:
         try:
-            self._database_probe(self._config.database_url)
+            self._database_probe(self._supabase)
         except Exception as exc:  # pragma: no cover - 実際の接続失敗を記録
             return DiagnosticResult(
-                name="PostgreSQL 接続",
+                name="Supabase 接続",
                 status=DiagnosticStatus.ERROR,
-                detail=f"SUPABASE_DB_URL への接続に失敗しました: {exc}",
+                detail=f"Supabase への接続に失敗しました: {exc}",
             )
 
         return DiagnosticResult(
-            name="PostgreSQL 接続",
+            name="Supabase 接続",
             status=DiagnosticStatus.OK,
-            detail="SUPABASE_DB_URL への接続確認に成功しました。",
+            detail="Supabase への接続確認に成功しました。",
         )
 
     def _check_data_directory(self) -> DiagnosticResult:

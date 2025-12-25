@@ -3,10 +3,8 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 
-from psycopg_pool import ConnectionPool
-
 from app.config import AppConfig
-from app.db import create_connection_pool, ensure_schema
+from app.db import create_supabase_client
 from bot import BridgeBotClient, register_bridge_commands
 from bot.bridge import (
     BridgeMessageStore,
@@ -25,14 +23,10 @@ class BridgeApplication:
 
     client: BridgeBotClient
     token: str
-    db_pool: ConnectionPool
 
     async def run(self) -> None:
-        try:
-            async with self.client:
-                await self.client.start(self.token)
-        finally:
-            self.db_pool.close()
+        async with self.client:
+            await self.client.start(self.token)
 
 
 @dataclass(slots=True)
@@ -40,14 +34,15 @@ class _BridgeDependencies:
     profile_store: BridgeProfileStore
     message_store: BridgeMessageStore
     routes: list[ChannelRoute]
-    db_pool: ConnectionPool
 
 
 def _load_bridge_dependencies(config: AppConfig) -> _BridgeDependencies:
-    pool = create_connection_pool(config.database_url)
-    ensure_schema(pool)
-    profile_store = BridgeProfileStore(pool)
-    message_store = BridgeMessageStore(pool)
+    supabase = create_supabase_client(
+        config.supabase.url,
+        config.supabase.service_role_key,
+    )
+    profile_store = BridgeProfileStore(supabase)
+    message_store = BridgeMessageStore(supabase)
     routes = list(
         load_channel_routes(
             env_enabled=config.bridge_routes_env.enabled,
@@ -61,7 +56,6 @@ def _load_bridge_dependencies(config: AppConfig) -> _BridgeDependencies:
         profile_store=profile_store,
         message_store=message_store,
         routes=routes,
-        db_pool=pool,
     )
 
 
@@ -81,7 +75,6 @@ async def build_bridge_app(config: AppConfig) -> BridgeApplication:
     return BridgeApplication(
         client=client,
         token=config.discord.token,
-        db_pool=bridge_dependencies.db_pool,
     )
 
 

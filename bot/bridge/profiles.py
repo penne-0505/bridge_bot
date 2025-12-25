@@ -6,9 +6,7 @@ from dataclasses import dataclass
 from typing import Dict, List
 from urllib.parse import quote_plus
 
-from psycopg.rows import dict_row
-from psycopg.types.json import Json
-from psycopg_pool import ConnectionPool
+from supabase import Client
 
 LOGGER = logging.getLogger(__name__)
 
@@ -62,41 +60,46 @@ class BridgeProfile:
 
 
 class BridgeProfileStore:
-    """Manage adjective/noun dictionaries stored in PostgreSQL."""
+    """Manage adjective/noun dictionaries stored in Supabase."""
 
-    def __init__(self, pool: ConnectionPool, table_name: str = "bridge_profiles") -> None:
-        self._pool = pool
+    def __init__(self, supabase: Client, table_name: str = "bridge_profiles") -> None:
+        self._supabase = supabase
         self._table_name = table_name
         self._dictionary = self._load_or_seed_dictionary()
 
     def _load_or_seed_dictionary(self) -> Dict[str, List[str]]:
-        with self._pool.connection() as conn:
-            with conn.cursor(row_factory=dict_row) as cur:
-                cur.execute(
-                    f"SELECT adjectives, nouns FROM {self._table_name} WHERE id = %s",
-                    (DICTIONARY_ID,),
-                )
-                record = cur.fetchone()
-                if record:
-                    adjectives = list(record["adjectives"] or [])
-                    nouns = list(record["nouns"] or [])
-                    if not adjectives or not nouns:
-                        raise RuntimeError("Bridge profile dictionary is empty.")
-                    return {"adjectives": adjectives, "nouns": nouns}
+        response = (
+            self._supabase.table(self._table_name)
+            .select("adjectives, nouns")
+            .eq("id", DICTIONARY_ID)
+            .execute()
+        )
+        record = None
+        if isinstance(response.data, list) and response.data:
+            record = response.data[0]
+        elif isinstance(response.data, dict):
+            record = response.data
 
-                cur.execute(
-                    f"""
-                    INSERT INTO {self._table_name} (id, adjectives, nouns, updated_at)
-                    VALUES (%s, %s, %s, clock_timestamp())
-                    ON CONFLICT (id) DO NOTHING
-                    """,
-                    (DICTIONARY_ID, Json(DEFAULT_ADJECTIVES), Json(DEFAULT_NOUNS)),
-                )
-                LOGGER.info("Bridge profile dictionary seeded with default adjectives and nouns.")
-                return {
-                    "adjectives": list(DEFAULT_ADJECTIVES),
-                    "nouns": list(DEFAULT_NOUNS),
-                }
+        if record:
+            adjectives = list(record.get("adjectives") or [])
+            nouns = list(record.get("nouns") or [])
+            if not adjectives or not nouns:
+                raise RuntimeError("Bridge profile dictionary is empty.")
+            return {"adjectives": adjectives, "nouns": nouns}
+
+        self._supabase.table(self._table_name).upsert(
+            {
+                "id": DICTIONARY_ID,
+                "adjectives": list(DEFAULT_ADJECTIVES),
+                "nouns": list(DEFAULT_NOUNS),
+            },
+            on_conflict="id",
+        ).execute()
+        LOGGER.info("Bridge profile dictionary seeded with default adjectives and nouns.")
+        return {
+            "adjectives": list(DEFAULT_ADJECTIVES),
+            "nouns": list(DEFAULT_NOUNS),
+        }
 
     def refresh_dictionary(self) -> None:
         """Reload the adjective and noun lists from the database."""

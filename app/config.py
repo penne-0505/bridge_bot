@@ -29,12 +29,20 @@ class BridgeRouteEnvSettings:
 
 
 @dataclass(frozen=True, slots=True)
+class SupabaseSettings:
+    """Supabase 接続情報を保持する。"""
+
+    url: str
+    service_role_key: str
+
+
+@dataclass(frozen=True, slots=True)
 class AppConfig:
     """ブリッジ専用アプリケーション全体の設定。"""
 
     discord: DiscordSettings
     bridge_routes_env: BridgeRouteEnvSettings
-    database_url: str
+    supabase: SupabaseSettings
 
 
 def _load_env_file(env_file: str | Path | None) -> None:
@@ -61,14 +69,17 @@ def load_config(env_file: str | Path | None = None) -> AppConfig:
 
     token = _prepare_client_token(raw_token=os.getenv("DISCORD_BOT_TOKEN"))
     bridge_routes_env = _load_bridge_env_settings()
-    database_url = _prepare_database_url(os.getenv("SUPABASE_DB_URL"))
+    supabase = SupabaseSettings(
+        url=_prepare_supabase_url(os.getenv("SUPABASE_URL")),
+        service_role_key=_prepare_supabase_key(os.getenv("SUPABASE_SERVICE_ROLE_KEY")),
+    )
 
     LOGGER.info("bridge_base 設定の読み込みが完了しました。")
 
     return AppConfig(
         discord=DiscordSettings(token=token),
         bridge_routes_env=bridge_routes_env,
-        database_url=database_url,
+        supabase=supabase,
     )
 
 
@@ -110,9 +121,15 @@ def _read_bool_env(name: str, *, default: bool) -> bool:
     return default
 
 
-def _prepare_database_url(raw: str | None) -> str:
+def _prepare_supabase_url(raw: str | None) -> str:
     if raw is None or raw.strip() == "":
-        raise ValueError("SUPABASE_DB_URL is not set in environment variables.")
+        raise ValueError("SUPABASE_URL is not set in environment variables.")
+    return raw.strip()
+
+
+def _prepare_supabase_key(raw: str | None) -> str:
+    if raw is None or raw.strip() == "":
+        raise ValueError("SUPABASE_SERVICE_ROLE_KEY is not set in environment variables.")
     return raw.strip()
 
 
@@ -120,5 +137,6 @@ __all__ = [
     "AppConfig",
     "BridgeRouteEnvSettings",
     "DiscordSettings",
+    "SupabaseSettings",
     "load_config",
 ]

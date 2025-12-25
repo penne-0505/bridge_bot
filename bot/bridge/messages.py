@@ -4,9 +4,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Iterable, List, Optional
 
-from psycopg.rows import dict_row
-from psycopg.types.json import Json
-from psycopg_pool import ConnectionPool
+from supabase import Client
 
 
 @dataclass(slots=True)
@@ -81,8 +79,8 @@ class BridgeMessageRecord:
 class BridgeMessageStore:
     """Persist bridge message metadata for later synchronisation."""
 
-    def __init__(self, pool: ConnectionPool, table_name: str = "bridge_messages") -> None:
-        self._pool = pool
+    def __init__(self, supabase: Client, table_name: str = "bridge_messages") -> None:
+        self._supabase = supabase
         self._table_name = table_name
 
     def upsert(
@@ -98,55 +96,34 @@ class BridgeMessageStore:
     ) -> None:
         normalized_destination_ids = _normalize_destination_ids(destination_ids)
         attachment_payload = attachments.to_record()
-        with self._pool.connection() as conn:
-            with conn.cursor() as cur:
-                cur.execute(
-                    f"""
-                    INSERT INTO {self._table_name} (
-                        source_id,
-                        destination_ids,
-                        profile_seed,
-                        display_name,
-                        avatar_url,
-                        dicebear_failed,
-                        image_filename,
-                        attachment_notes,
-                        updated_at
-                    )
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, clock_timestamp())
-                    ON CONFLICT (source_id) DO UPDATE SET
-                        destination_ids = EXCLUDED.destination_ids,
-                        profile_seed = EXCLUDED.profile_seed,
-                        display_name = EXCLUDED.display_name,
-                        avatar_url = EXCLUDED.avatar_url,
-                        dicebear_failed = EXCLUDED.dicebear_failed,
-                        image_filename = EXCLUDED.image_filename,
-                        attachment_notes = EXCLUDED.attachment_notes,
-                        updated_at = EXCLUDED.updated_at
-                    """,
-                    (
-                        source_id,
-                        Json(normalized_destination_ids),
-                        profile_seed,
-                        display_name,
-                        avatar_url,
-                        dicebear_failed,
-                        attachment_payload["image_filename"],
-                        Json(attachment_payload["notes"]),
-                    ),
-                )
+        payload = {
+            "source_id": source_id,
+            "destination_ids": normalized_destination_ids,
+            "profile_seed": profile_seed,
+            "display_name": display_name,
+            "avatar_url": avatar_url,
+            "dicebear_failed": dicebear_failed,
+            "image_filename": attachment_payload["image_filename"],
+            "attachment_notes": list(attachment_payload["notes"]),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }
+        self._supabase.table(self._table_name).upsert(
+            payload,
+            on_conflict="source_id",
+        ).execute()
 
     def get(self, source_id: int) -> Optional[BridgeMessageRecord]:
-        with self._pool.connection() as conn:
-            with conn.cursor(row_factory=dict_row) as cur:
-                cur.execute(
-                    f"SELECT * FROM {self._table_name} WHERE source_id = %s",
-                    (source_id,),
-                )
-                record = cur.fetchone()
-        if record is None:
-            return None
-        return BridgeMessageRecord.from_record(record)
+        response = (
+            self._supabase.table(self._table_name)
+            .select("*")
+            .eq("source_id", source_id)
+            .execute()
+        )
+        if isinstance(response.data, list) and response.data:
+            return BridgeMessageRecord.from_record(response.data[0])
+        if isinstance(response.data, dict):
+            return BridgeMessageRecord.from_record(response.data)
+        return None
 
     def update_metadata(
         self,
@@ -164,70 +141,64 @@ class BridgeMessageStore:
             image_filename = attachments.image_filename
             notes = list(attachments.notes)
 
-        with self._pool.connection() as conn:
-            with conn.cursor() as cur:
-                cur.execute(
-                    f"""
-                    UPDATE {self._table_name}
-                    SET image_filename = %s,
-                        attachment_notes = %s,
-                        updated_at = clock_timestamp()
-                    WHERE source_id = %s
-                    """,
-                    (image_filename, Json(notes), source_id),
-                )
+        self._supabase.table(self._table_name).update(
+            {
+                "image_filename": image_filename,
+                "attachment_notes": notes,
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            }
+        ).eq("source_id", source_id).execute()
 
     def delete(self, source_id: int) -> bool:
-        with self._pool.connection() as conn:
-            with conn.cursor() as cur:
-                cur.execute(
-                    f"DELETE FROM {self._table_name} WHERE source_id = %s",
-                    (source_id,),
-                )
-                return cur.rowcount > 0
+        response = (
+            self._supabase.table(self._table_name)
+            .delete()
+            .eq("source_id", source_id)
+            .execute()
+        )
+        if isinstance(response.data, list):
+            return len(response.data) > 0
+        return bool(response.data)
 
     def remove_destination(self, destination_id: int) -> None:
-        with self._pool.connection() as conn:
-            with conn.cursor(row_factory=dict_row) as cur:
-                cur.execute(
-                    f"""
-                    SELECT source_id, destination_ids
-                    FROM {self._table_name}
-                    WHERE destination_ids @> %s
-                    LIMIT 1
-                    """,
-                    (Json([destination_id]),),
-                )
-                record = cur.fetchone()
+        response = (
+            self._supabase.table(self._table_name)
+            .select("source_id, destination_ids")
+            .contains("destination_ids", [destination_id])
+            .limit(1)
+            .execute()
+        )
+        record = None
+        if isinstance(response.data, list) and response.data:
+            record = response.data[0]
+        elif isinstance(response.data, dict):
+            record = response.data
 
         if record is None:
             return
 
-        remaining = [int(value) for value in record["destination_ids"] if int(value) != destination_id]
+        remaining = [int(value) for value in record.get("destination_ids", []) if int(value) != destination_id]
         if remaining:
             normalized = sorted(dict.fromkeys(remaining))
-            with self._pool.connection() as conn:
-                with conn.cursor() as cur:
-                    cur.execute(
-                        f"""
-                        UPDATE {self._table_name}
-                        SET destination_ids = %s,
-                            updated_at = clock_timestamp()
-                        WHERE source_id = %s
-                        """,
-                        (Json(normalized), record["source_id"]),
-                    )
+            self._supabase.table(self._table_name).update(
+                {
+                    "destination_ids": normalized,
+                    "updated_at": datetime.now(timezone.utc).isoformat(),
+                }
+            ).eq("source_id", record["source_id"]).execute()
         else:
-            self.delete(record["source_id"])
+            self.delete(int(record["source_id"]))
 
     def purge_older_than(self, *, threshold: datetime) -> int:
-        with self._pool.connection() as conn:
-            with conn.cursor() as cur:
-                cur.execute(
-                    f"DELETE FROM {self._table_name} WHERE updated_at < %s",
-                    (threshold,),
-                )
-                return cur.rowcount
+        response = (
+            self._supabase.table(self._table_name)
+            .delete()
+            .lt("updated_at", threshold.isoformat())
+            .execute()
+        )
+        if isinstance(response.data, list):
+            return len(response.data)
+        return 0
 
 
 def _normalize_destination_ids(values: Iterable[int]) -> List[int]:

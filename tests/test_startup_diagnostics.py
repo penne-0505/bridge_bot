@@ -3,7 +3,14 @@ from __future__ import annotations
 import json
 from typing import Callable
 
-from app.config import AppConfig, BridgeRouteEnvSettings, DiscordSettings
+from supabase import Client
+
+from app.config import (
+    AppConfig,
+    BridgeRouteEnvSettings,
+    DiscordSettings,
+    SupabaseSettings,
+)
 from app.diagnostics import DiagnosticStatus, StartupDiagnostics
 
 
@@ -13,7 +20,10 @@ def _config(
 ) -> AppConfig:
     return AppConfig(
         discord=DiscordSettings(token="dummy-token-value"),
-        database_url="postgresql://user:pass@localhost:5432/db",
+        supabase=SupabaseSettings(
+            url="https://example.supabase.co",
+            service_role_key="service-role-key",
+        ),
         bridge_routes_env=routes_env
         or BridgeRouteEnvSettings(
             enabled=False,
@@ -28,7 +38,7 @@ def _run_diags(
     config: AppConfig,
     tmp_path,
     *,
-    database_probe: Callable[[str], None] | None = None,
+    database_probe: Callable[[Client], None] | None = None,
 ):
     runner = StartupDiagnostics(
         config=config,
@@ -42,7 +52,7 @@ def test_startup_diagnostics_ok_when_routes_disabled(tmp_path):
     results = _run_diags(_config(), tmp_path)
 
     assert results["Discord トークン"].status is DiagnosticStatus.OK
-    assert results["PostgreSQL 接続"].status is DiagnosticStatus.OK
+    assert results["Supabase 接続"].status is DiagnosticStatus.OK
     assert results["データディレクトリ"].status is DiagnosticStatus.OK
     assert results["ブリッジルート"].status is DiagnosticStatus.OK
 
@@ -85,9 +95,9 @@ def test_startup_diagnostics_reports_env_payload_error(tmp_path):
 def test_startup_diagnostics_reports_database_error(tmp_path):
     config = _config()
 
-    def failing_probe(_: str) -> None:  # noqa: D401
+    def failing_probe(_: Client) -> None:  # noqa: D401
         raise RuntimeError("boom")
 
     results = _run_diags(config, tmp_path, database_probe=failing_probe)
 
-    assert results["PostgreSQL 接続"].status is DiagnosticStatus.ERROR
+    assert results["Supabase 接続"].status is DiagnosticStatus.ERROR

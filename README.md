@@ -4,7 +4,7 @@
 
 ## 構成
 
-- `app/` : 環境変数の読み込みと依存性注入。`SUPABASE_DB_URL` から PostgreSQL 接続を構築し、Discord クライアントとストアを初期化します。
+- `app/` : 環境変数の読み込みと依存性注入。Supabase Python SDK のクライアントを構築し、Discord クライアントとストアを初期化します。
 - `bot/` : `BridgeBotClient`、ブリッジコマンド、ChannelBridgeManager を含むロジック。
 - `bot/bridge/` : プロフィール・メッセージストアとルートローダー。メタデータは PostgreSQL の `bridge_profiles` と `bridge_messages` に保存されます。
 - `docs/` : 設定、運用手順、Postgres セットアップのガイド。
@@ -15,7 +15,8 @@
 | 変数名 | 説明 | 備考 |
 | --- | --- | --- |
 | `DISCORD_BOT_TOKEN` | Discord Bot の Bot トークン。必須。 | - |
-| `SUPABASE_DB_URL` | Supabase PostgreSQL 接続文字列。例: `postgresql://user:pass@db:5432/rin_bridge`。 | 起動時に未設定だとエラーになります。 |
+| `SUPABASE_URL` | Supabase プロジェクトの URL。例: `https://xxxx.supabase.co`。 | 起動時に未設定だとエラーになります。 |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase の service role key。 | 起動時に未設定だとエラーになります。 |
 | `BRIDGE_ROUTES_ENABLED` | `true` で環境変数からルート定義を読み込み、メッセージブリッジ機能を有効化。`false` ならルートはロードされません。 | 既定値 `false`。 |
 | `BRIDGE_ROUTES` | JSON 配列でルートを定義。`BRIDGE_ROUTES_ENABLED=true` で必須。 | - |
 | `BRIDGE_ROUTES_REQUIRE_RECIPROCAL` | `true` のとき双方向ルートが必須。 | 既定値 `false`。 |
@@ -25,12 +26,12 @@
 
 ## データベース
 
-Supabase の PostgreSQL 上で `bridge_profiles` / `bridge_messages` テーブルを管理し、サーバー間での運用監視性を高めます。テーブルの作成や `SUPABASE_DB_URL` の準備手順は [docs/guide/postgresql_setup.md](docs/guide/postgresql_setup.md) にまとめています。起動時にテーブルがなければ自動生成されますが、手動でのセットアップや運用チェックも同ドキュメントをご利用ください。
+Supabase の PostgreSQL 上で `bridge_profiles` / `bridge_messages` テーブルを管理し、サーバー間での運用監視性を高めます。テーブル作成手順は [docs/guide/postgresql_setup.md](docs/guide/postgresql_setup.md) にまとめています。起動前に SQL を適用してください。
 
 ## セットアップ
 
 1. `poetry install` で依存関係をインストール。
-2. Supabase プロジェクトを用意し、`SUPABASE_DB_URL` を含む環境変数を設定する。必要があれば `docs/guide/postgresql_setup.md` の SQL を `psql` で実行する。
+2. Supabase プロジェクトを用意し、`SUPABASE_URL` と `SUPABASE_SERVICE_ROLE_KEY` を含む環境変数を設定する。`docs/guide/postgresql_setup.md` の SQL を Supabase SQL Editor で実行する。
 3. `DISCORD_BOT_TOKEN` とブリッジルートの情報を環境変数で渡す。
 
 ## 実行方法
@@ -45,7 +46,7 @@ poetry run python main.py
 
 `main.py` の起動時に、Bot が正しく動作できるか確認するセルフチェックが自動で実行されます。
 
-- `DISCORD_BOT_TOKEN` と `SUPABASE_DB_URL` の検出および接続性を検証します。
+- `DISCORD_BOT_TOKEN` と Supabase の接続情報の検出および接続性を検証します。
 - `data/` ディレクトリの読み書き可否を確認します。
 - ブリッジルートの設定（環境変数 `BRIDGE_ROUTES`）を検証し、問題があれば警告/エラーをログに出力します。
 

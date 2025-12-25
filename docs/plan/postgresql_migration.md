@@ -1,5 +1,7 @@
 # PostgreSQL移行計画
 
+> 参考メモ: 現在の実装は Supabase Python SDK を利用し、接続は `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` に移行済み。DDL は `docs/guide/bridge_schema.sql` を使用する。
+
 ## 目的
 TinyDB による JSON ストア（`bridge_profiles.json` / `bridge_messages.json`）は起動ディレクトリにローカルファイルを作るという目的には合致していますが、今後の運用や監視を考えると永続化レイヤーを Postgres に移行し、環境変数による集中管理と運用監視性を高めたいという要件に備えるための計画です。現状が非稼働状態であるため、過去データや運用ストップを気にせずゼロからスキーマを作り直します。
 
@@ -39,7 +41,7 @@ TinyDB による JSON ストア（`bridge_profiles.json` / `bridge_messages.json
 ## 実装ステップ
 1. **依存関係と設定の整備**
    - `pyproject.toml` から `tinydb` を削除し、代わりに `psycopg[binary]`（または `psycopg_pool` と `psycopg`）を追加して PostgreSQL に接続できるようにする。将来的に SQLAlchemy を使う可能性を踏まえ、小規模なら `psycopg` 直書きでも十分。
-   - `.env`/環境変数に `SUPABASE_DB_URL`（例: `postgresql://user:pass@host:5432/rin_bridge`）を追加し、`app/config.py` の `AppConfig` に `database_url: str` を追加して `load_config` で読み込む。
+   - `.env`/環境変数に `SUPABASE_URL` と `SUPABASE_SERVICE_ROLE_KEY` を追加し、`app/config.py` の `AppConfig` で読み込む。
    - `app/container.py` に PostgreSQL プール生成処理を追加し、起動時に 1 回ルートの `psycopg_pool.Pool`/`psycopg.Connection` を作成し、ストアインスタンスに渡す。
 
 2. **PostgreSQL 接続ラッパーの実装**
@@ -74,7 +76,7 @@ TinyDB による JSON ストア（`bridge_profiles.json` / `bridge_messages.json
 
 ## リスクと対策
 - **ブロッキング**: 同期的な `psycopg` 呼び出しが Discord のイベントループを止める恐れがあるので、必要に応じて `asyncio.to_thread` で DB 操作をデスクローズするか、非同期ドライバ（`asyncpg`）への切り替えを検討する。
-- **接続設定漏れ**: `SUPABASE_DB_URL` が未設定だと起動しないため `AppConfig` の `load_config` で明示的なチェックとエラーメッセージを出す。
+- **接続設定漏れ**: `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` が未設定だと起動しないため `AppConfig` の `load_config` で明示的なチェックとエラーメッセージを出す。
 - **テーブル未作成**: `CREATE TABLE IF NOT EXISTS` をコンテナ起動時に行ったり、`docs/plan/postgresql_migration.md` のような SQL スクリプトを配布して手動実行することで対応。
 
 ## 次のステップ
