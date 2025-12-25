@@ -139,10 +139,12 @@ class BridgeProfileStore:
             return dict(self._guild_colors)
 
         existing_colors = set(self._guild_colors.values())
+        existing_lab = [_rgb_to_lab(_color_to_rgb(color)) for color in existing_colors]
         for gid in sorted(missing):
-            color = self._pick_guild_color(existing_colors)
+            color = self._pick_guild_color(existing_colors, existing_lab)
             self._guild_colors[gid] = color
             existing_colors.add(color)
+            existing_lab.append(_rgb_to_lab(_color_to_rgb(color)))
 
         self._supabase.table(self._table_name).update(
             {"guild_colors": self._serialize_guild_colors(self._guild_colors)}
@@ -197,11 +199,15 @@ class BridgeProfileStore:
         return normalized, changed
 
     @staticmethod
-    def _pick_guild_color(existing_colors: set[int]) -> int:
+    def _pick_guild_color(
+        existing_colors: set[int],
+        existing_lab: List[tuple[float, float, float]] | None = None,
+    ) -> int:
         if not existing_colors:
             return GUILD_COLOR_PALETTE[0]
 
-        existing_lab = [_rgb_to_lab(_color_to_rgb(color)) for color in existing_colors]
+        if existing_lab is None:
+            existing_lab = [_rgb_to_lab(_color_to_rgb(color)) for color in existing_colors]
         candidates = _build_color_candidates(existing_colors)
         if not candidates:
             return GUILD_COLOR_PALETTE[0]
