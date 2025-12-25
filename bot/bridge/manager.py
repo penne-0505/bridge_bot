@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 import mimetypes
 from dataclasses import dataclass
@@ -256,6 +257,7 @@ class ChannelBridgeManager:
                 raw_content=after.content,
                 annotations=annotations,
                 profile=profile,
+                guild_id=after.guild.id,
             )
 
             if embed is not None:
@@ -442,6 +444,7 @@ class ChannelBridgeManager:
             raw_content=source_message.content,
             annotations=annotations,
             profile=profile,
+            guild_id=source_message.guild.id,
         )
 
         if embed is not None and attachments.image_filename:
@@ -480,6 +483,7 @@ class ChannelBridgeManager:
         raw_content: Optional[str],
         annotations: Sequence[str],
         profile: BridgeProfile,
+        guild_id: int,
     ) -> Tuple[Optional[discord.Embed], Optional[str]]:
         description = "\n".join(filter(None, annotations)).strip() or None
 
@@ -493,7 +497,13 @@ class ChannelBridgeManager:
             parts: List[str] = [message_content]
             if description:
                 parts.append(description)
-            embed = discord.Embed(description="\n".join(parts), colour=discord.Colour.dark_blue())
+            color_value = self._profile_store.get_guild_color(guild_id)
+            embed_color = (
+                discord.Colour(color_value)
+                if color_value is not None
+                else discord.Colour.dark_blue()
+            )
+            embed = discord.Embed(description="\n".join(parts), colour=embed_color)
             embed.set_author(name=profile.display_name, icon_url=profile.avatar_url)
         else:
             truncated_description = (description or "")
@@ -505,6 +515,12 @@ class ChannelBridgeManager:
             content = "\n".join(content_lines)
 
         return embed, content
+
+    async def ensure_guild_colors(self, guilds: Sequence[discord.Guild]) -> None:
+        guild_ids = [guild.id for guild in guilds]
+        if not guild_ids:
+            return
+        await asyncio.to_thread(self._profile_store.ensure_guild_colors, guild_ids)
 
     def _log_bridge_received(self, *, message: discord.Message, route_count: int) -> None:
         attachment_count = len(message.attachments)

@@ -2,6 +2,7 @@ CREATE TABLE IF NOT EXISTS bridge_profiles (
   id TEXT PRIMARY KEY,
   adjectives JSONB NOT NULL,
   nouns JSONB NOT NULL,
+  guild_colors JSONB NOT NULL DEFAULT '{}'::jsonb,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp()
 );
 

@@ -32,6 +32,11 @@ class BridgeBotClient(discord.Client):
             return
 
         LOGGER.info("BridgeBotClient ログイン完了: %s (ID: %s)", self.user, self.user.id)
+        if self.bridge_manager is not None:
+            try:
+                await self.bridge_manager.ensure_guild_colors(self.guilds)
+            except Exception as exc:
+                LOGGER.warning("ギルドカラーの同期に失敗しました: error=%s", exc)
         await self.tree.sync()
         LOGGER.info("アプリケーションコマンドの同期が完了しました。")
         LOGGER.info("チャンネルブリッジの待機を開始します。")
