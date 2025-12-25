@@ -1,12 +1,13 @@
 # Supabase PostgreSQL セットアップ
 
-`bridge_bot` は Supabase Python SDK で `bridge_profiles` / `bridge_messages` テーブルを利用します。起動時の自動作成は行わないため、事前に Supabase SQL Editor でスキーマを作成してください。スキーマ定義は `docs/guide/bridge_schema.sql` にまとめています。
+`bridge_bot` は Supabase Python SDK で `bridge_profiles` / `bridge_messages` テーブルを利用します。起動時の自動作成は行わないため、事前に Supabase SQL Editor でスキーマを作成してください。スキーマ定義は `supabase/bridge_schema.sql` にまとめています。
 
 ## 1. Supabase プロジェクトの用意
 
 Supabase でプロジェクトを作成し、PostgreSQL データベースを用意します。
 
 Supabase ダッシュボードから：
+
 1. 新しいプロジェクトを作成
 2. データベース設定から接続情報を取得
 3. 必要に応じてデータベースのパスワードをリセット
@@ -15,7 +16,7 @@ Supabase は自動的にデータベースを用意するため、手動での�
 
 ## 2. スキーマを作成する
 
-以下の SQL を Supabase SQL Editor で実行すると、必要なテーブルとインデックスを作成できます。SQL は `docs/guide/bridge_schema.sql` と同一です。
+以下の SQL を Supabase SQL Editor で実行すると、必要なテーブルとインデックスを作成できます。SQL は `supabase/bridge_schema.sql` と同一です。
 
 ```sql
 CREATE TABLE IF NOT EXISTS bridge_profiles (
