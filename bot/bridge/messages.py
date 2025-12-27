@@ -164,7 +164,7 @@ class BridgeMessageStore:
         response = (
             self._supabase.table(self._table_name)
             .select("source_id, destination_ids")
-            .contains("destination_ids", [destination_id])
+            .contains("destination_ids", [str(destination_id)])
             .limit(1)
             .execute()
         )
